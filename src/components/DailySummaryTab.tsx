@@ -139,9 +139,7 @@ const loadMonthlyRows = useCallback(async () => {
   setMonthlyRows(data);
 }, [selectedMonth, selectedYear]);
 
-useEffect(() => {
-  loadMonthlyRows();
-}, [selectedMonth, selectedYear]);
+
 
   const loadRows = useCallback(async () => {
   const q = query(
@@ -175,9 +173,12 @@ useEffect(() => {
 }, [fromDate, toDate]);
 
 useEffect(() => {
-  loadRows();
-}, [fromDate, toDate]);
+  loadMonthlyRows();
+}, [loadMonthlyRows]);
 
+useEffect(() => {
+  loadRows();
+}, [loadRows]);
 
   /* ================= SAVE ================= */
   const save = async () => {

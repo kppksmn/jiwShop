@@ -3,7 +3,17 @@ import {
   Card, CardContent, Grid, TextField, Button, Typography,
   Table, TableBody, TableCell, TableHead, TableRow, TableContainer, Box, Divider, Paper
 } from "@mui/material";
-import { collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  doc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+} from "firebase/firestore";
 import { db } from "../firebase";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -30,11 +40,25 @@ export default function PaymentQueueTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  const loadQueue = async () => {
-    const querySnapshot = await getDocs(collection(db, "paymentQueue"));
+const loadQueue = async () => {
+  try {
+    const startDate = `${filterMonth}-01`;
+    const endDate = `${filterMonth}-31`;
+
+    const q = query(
+      collection(db, "paymentQueue"),
+      where("dueDate", ">=", startDate),
+      where("dueDate", "<=", endDate),
+      orderBy("dueDate", "asc")
+    );
+
+    const querySnapshot = await getDocs(q);
+
     const data: PaymentQueueItem[] = [];
+
     querySnapshot.forEach((docSnap) => {
       const d = docSnap.data();
+
       data.push({
         id: docSnap.id,
         vendor: d.vendor,
@@ -44,10 +68,17 @@ export default function PaymentQueueTab() {
         status: d.status,
       });
     });
-    setQueue(data);
-  };
 
-  useEffect(() => { loadQueue(); }, []);
+    setQueue(data);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+
+useEffect(() => {
+  loadQueue();
+}, [filterMonth]);
 const exportExcel = () => {
   /* ================= DATA ================= */
 
@@ -729,31 +760,28 @@ autoTable(doc, {
     `payment_queue_${filterMonth}.pdf`
   );
 };
-  // 1. กรองข้อมูลตามเดือน
-  const filteredQueue = useMemo(() => {
-    return queue.filter(item => item.dueDate.startsWith(filterMonth));
-  }, [queue, filterMonth]);
+
 
   // 2. เรียงลำดับตามวันที่ (วันครบกำหนด) จากน้อยไปมาก
   const sortedQueue = useMemo(() => {
-    return [...filteredQueue].sort((a, b) => 
+    return [...queue].sort((a, b) => 
       new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
     );
-  }, [filteredQueue]);
+  }, [queue]);
 
   // 3. สรุปยอดรวมแยกตามชื่อ (Group by Vendor)
   const summaryByVendor = useMemo(() => {
     const summaryMap: { [key: string]: number } = {};
-    filteredQueue.forEach(item => {
+    queue.forEach(item => {
       const name = item.vendor.trim();
       summaryMap[name] = (summaryMap[name] || 0) + item.amount;
     });
     return Object.entries(summaryMap).map(([name, total]) => ({ name, total }));
-  }, [filteredQueue]);
+  }, [queue]);
 
   const totalAmount = useMemo(() => {
-    return filteredQueue.reduce((sum, item) => sum + item.amount, 0);
-  }, [filteredQueue]);
+    return queue.reduce((sum, item) => sum + item.amount, 0);
+  }, [queue]);
 
   // Actions
   const handleSaveEdit = async (id: string) => {

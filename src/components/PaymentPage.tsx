@@ -27,6 +27,7 @@ import {
   serverTimestamp,
   query,
   where,
+  orderBy,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -85,22 +86,36 @@ function PaymentPage() {
     setAmount("");
   };
 
-  /* ---------- load data ---------- */
-  const loadPayments = async () => {
-    const snap = await getDocs(collection(db, "payments"));
-    const all = snap.docs.map(d => ({
+const loadPayments = async () => {
+  try {
+    const startDate = `${year}-${month}-01`;
+    const endDate = `${year}-${month}-31`;
+
+    const q = query(
+      collection(db, "payments"),
+      where("date", ">=", startDate),
+      where("date", "<=", endDate),
+      orderBy("date", "asc")
+    );
+
+    const snap = await getDocs(q);
+
+    const all = snap.docs.map((d) => ({
       id: d.id,
       ...(d.data() as Omit<PaymentItem, "id">),
     }));
 
-    const key = `${year}-${month}`;
-    const current = all
-      .filter(i => i.date.startsWith(key))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    setNewItems(
+      all.filter((i) => i.status === "new")
+    );
 
-    setNewItems(current.filter(i => i.status === "new"));
-    setPaidItems(current.filter(i => i.status === "paid"));
-  };
+    setPaidItems(
+      all.filter((i) => i.status === "paid")
+    );
+  } catch (error) {
+    console.error(error);
+  }
+};
 
   const loadCarryForward = async () => {
     const q = query(
@@ -278,6 +293,13 @@ function PaymentPage() {
   };
   
 
+
+const currentYear = new Date().getFullYear();
+
+const years = Array.from(
+  { length: currentYear - 2026 + 1 },
+  (_, index) => String(2026 + index)
+);
   return (
     <Box sx={{ p: { xs: 1, md: 3 }, maxWidth: "1200px", margin: "auto" }}>
       
@@ -315,7 +337,11 @@ function PaymentPage() {
       <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, justifyContent: "center", alignItems: "center", gap: 2, mb: 3 }}>
         <Box display="flex" gap={1}>
           <TextField select label="ปี" value={year} onChange={e => setYear(e.target.value)} SelectProps={{ native: true }} size="small">
-            {["2024", "2025", "2026"].map(y => <option key={y} value={y}>{y}</option>)}
+          {years.map((y) => (
+  <option key={y} value={y}>
+    {y}
+  </option>
+))}
           </TextField>
           <TextField select label="เดือน" value={month} onChange={e => setMonth(e.target.value)} SelectProps={{ native: true }} size="small">
             {Array.from({ length: 12 }).map((_, i) => {

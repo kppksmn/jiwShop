@@ -18,6 +18,7 @@ import {
   DialogActions,
   Stack,
 } from "@mui/material";
+
 import {
   collection,
   addDoc,
@@ -28,6 +29,7 @@ import {
   query,
   orderBy,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import * as XLSX from "xlsx-js-style";
@@ -78,7 +80,7 @@ export default function DailySummaryTab() {
   const [incomeTransfer, setIncomeTransfer] = useState("");
   const [expenseCash, setExpenseCash] = useState("");
   const [expenseTransfer, setExpenseTransfer] = useState("");
-
+const [monthlyRows, setMonthlyRows] = useState<DailySummary[]>([]);
   /* ===== FILTER ===== */
   const [fromDate, setFromDate] = useState(today);
   const [toDate, setToDate] = useState(today);
@@ -102,36 +104,82 @@ export default function DailySummaryTab() {
 
 
   /* ================= LOAD ================= */
-  const loadRows = async () => {
-    const q = query(
-      collection(db, "dailySummary"),
-      orderBy("createdAt", "asc") // ⭐ add ก่อน อยู่บน
-    );
+  const loadMonthlyRows = async () => {
+  const monthStart = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
 
-    const snap = await getDocs(q);
-    const data: DailySummary[] = [];
+  const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
 
-    snap.forEach((d) => {
-      const r = d.data() as any;
-      data.push({
-        id: d.id,
-        date: r.date,
-        title: r.title,
-        incomeCash: Number(r.incomeCash),
-        incomeTransfer: Number(r.incomeTransfer),
-        expenseCash: Number(r.expenseCash),
-        expenseTransfer: Number(r.expenseTransfer),
-        totalSales: Number(r.totalSales),
-        profit: Number(r.profit),
-      });
+  const monthEnd = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const q = query(
+    collection(db, "dailySummary"),
+    where("date", ">=", monthStart),
+    where("date", "<=", monthEnd),
+    orderBy("date", "asc")
+  );
+
+  const snap = await getDocs(q);
+
+  const data: DailySummary[] = [];
+
+  snap.forEach((d) => {
+    const r = d.data() as any;
+
+    data.push({
+      id: d.id,
+      date: r.date,
+      title: r.title,
+      incomeCash: Number(r.incomeCash),
+      incomeTransfer: Number(r.incomeTransfer),
+      expenseCash: Number(r.expenseCash),
+      expenseTransfer: Number(r.expenseTransfer),
+      totalSales: Number(r.totalSales),
+      profit: Number(r.profit),
     });
+  });
 
-    setRows(data);
-  };
+  setMonthlyRows(data);
+};
 
-  useEffect(() => {
-    loadRows();
-  }, []);
+useEffect(() => {
+  loadMonthlyRows();
+}, [selectedMonth, selectedYear]);
+
+  const loadRows = async () => {
+  const q = query(
+    collection(db, "dailySummary"),
+    where("date", ">=", fromDate),
+    where("date", "<=", toDate),
+    orderBy("date", "asc")
+  );
+
+  const snap = await getDocs(q);
+
+  const data: DailySummary[] = [];
+
+  snap.forEach((d) => {
+    const r = d.data() as any;
+
+    data.push({
+      id: d.id,
+      date: r.date,
+      title: r.title,
+      incomeCash: Number(r.incomeCash),
+      incomeTransfer: Number(r.incomeTransfer),
+      expenseCash: Number(r.expenseCash),
+      expenseTransfer: Number(r.expenseTransfer),
+      totalSales: Number(r.totalSales),
+      profit: Number(r.profit),
+    });
+  });
+
+  setRows(data);
+};
+
+useEffect(() => {
+  loadRows();
+}, [fromDate, toDate]);
+
 
   /* ================= SAVE ================= */
   const save = async () => {
@@ -181,18 +229,9 @@ export default function DailySummaryTab() {
   };
 
   /* ================= FILTER ================= */
-  const filteredRows = rows.filter((r) => {
-    if (fromDate && r.date < fromDate) return false;
-    if (toDate && r.date > toDate) return false;
-    return true;
-  })
+const filteredRows = rows;
 
-  const monthlyRows = rows
-    .filter((r) => {
-      const [y, m] = r.date.split("-").map(Number);
-      return y === selectedYear && m === selectedMonth;
-    })
-    .sort((a, b) => a.date.localeCompare(b.date)); // 🔹 เรียงตามวันที่
+
   const monthlyDailyTotals: DailyTotal[] = Object.values(
     monthlyRows.reduce<Record<string, DailyTotal>>((acc, r) => {
       if (!acc[r.date]) {

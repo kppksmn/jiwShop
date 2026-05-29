@@ -113,7 +113,8 @@ const loadMonthlyRows = useCallback(async () => {
     collection(db, "dailySummary"),
     where("date", ">=", monthStart),
     where("date", "<=", monthEnd),
-    orderBy("date", "asc")
+    orderBy("date", "asc"),
+      orderBy("createdAt", "asc")
   );
 
   const snap = await getDocs(q);
@@ -146,7 +147,8 @@ const loadMonthlyRows = useCallback(async () => {
     collection(db, "dailySummary"),
     where("date", ">=", fromDate),
     where("date", "<=", toDate),
-    orderBy("date", "asc")
+    orderBy("date", "asc"),
+      orderBy("createdAt", "asc")
   );
 
   const snap = await getDocs(q);

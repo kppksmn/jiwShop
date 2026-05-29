@@ -91,22 +91,39 @@ const loadPayments = useCallback(async () => {
     const startDate = `${year}-${month}-01`;
     const endDate = `${year}-${month}-31`;
 
-    const q = query(
+    const qPaid = query(
       collection(db, "payments"),
       where("date", ">=", startDate),
       where("date", "<=", endDate),
+      where("status", "==", "paid"),
       orderBy("date", "asc")
     );
 
-    const snap = await getDocs(q);
+    const qNew = query(
+      collection(db, "payments"),
+      where("date", ">=", startDate),
+      where("date", "<=", endDate),
+      where("status", "==", "new"),
+      orderBy("date", "asc")
+    );
 
-    const all = snap.docs.map((d) => ({
+    const [paidSnap, newSnap] = await Promise.all([
+      getDocs(qPaid),
+      getDocs(qNew),
+    ]);
+
+    const paid = paidSnap.docs.map((d) => ({
       id: d.id,
       ...(d.data() as Omit<PaymentItem, "id">),
     }));
 
-    setNewItems(all.filter((i) => i.status === "new"));
-    setPaidItems(all.filter((i) => i.status === "paid"));
+    const newItems = newSnap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<PaymentItem, "id">),
+    }));
+
+    setPaidItems(paid);
+    setNewItems(newItems);
   } catch (error) {
     console.error(error);
   }
@@ -157,6 +174,8 @@ useEffect(() => {
       amount: Number(amount),
       status: "paid",
       paidAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+
     });
     setOpenPaid(false);
     resetForm();

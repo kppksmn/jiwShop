@@ -13,6 +13,7 @@ import {
   query,
   where,
   orderBy,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import jsPDF from "jspdf";
@@ -42,18 +43,21 @@ export default function PaymentQueueTab() {
 
 const loadQueue = useCallback(async () => {
   try {
-    const startDate = `${filterMonth}-01`;
-    const endDate = `${filterMonth}-31`;
+ const startDate = `${filterMonth}-01`;
+const endDate = `${filterMonth}-31`;
 
-    const q = query(
-      collection(db, "paymentQueue"),
-      where("dueDate", ">=", startDate),
-      where("dueDate", "<=", endDate),
-      orderBy("dueDate", "asc")
-    );
+ const q = query(
+  collection(db, "paymentQueue"),
+  where("dueDate", ">=", startDate),
+  where("dueDate", "<=", endDate),
+  orderBy("dueDate", "asc"),
+  orderBy("createdAt", "asc")
+);
 
     const querySnapshot = await getDocs(q);
-
+querySnapshot.docs.forEach(d => {
+  console.log(d.data());
+});
     const data: PaymentQueueItem[] = [];
 
     querySnapshot.forEach((docSnap) => {
@@ -90,7 +94,7 @@ const exportExcel = () => {
       "สถานะ",
     ],
 
-    ...sortedQueue.map((item) => [
+    ...queue.map((item) => [
       item.vendor,
 
       item.amount,
@@ -293,19 +297,19 @@ const summaryTableHeaderStyle = {
   const mainHeaderRow = 0;
 
   const firstTotalRow =
-    sortedQueue.length + 1;
+    queue.length + 1;
 
   const summaryTitleRow =
-    sortedQueue.length + 3;
+    queue.length + 3;
 
   const summaryHeaderRow =
-    sortedQueue.length + 4;
+    queue.length + 4;
 
   const summaryDataStartRow =
-    sortedQueue.length + 5;
+    queue.length + 5;
 
   const summaryTotalRow =
-    sortedQueue.length +
+    queue.length +
     summaryByVendor.length +
     5;
 
@@ -567,7 +571,7 @@ const exportPDF = () => {
   
 
     body: [
-      ...sortedQueue.map((item) => [
+      ...queue.map((item) => [
         item.vendor,
 
         item.amount.toLocaleString(undefined, {
@@ -626,7 +630,7 @@ const exportPDF = () => {
 
       if (
         data.section === "body" &&
-        data.row.index === sortedQueue.length
+        data.row.index === queue.length
       ) {
   data.cell.styles.font = "PromptRegular";
 
@@ -761,12 +765,6 @@ autoTable(doc, {
 };
 
 
-  // 2. เรียงลำดับตามวันที่ (วันครบกำหนด) จากน้อยไปมาก
-  const sortedQueue = useMemo(() => {
-    return [...queue].sort((a, b) => 
-      new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-    );
-  }, [queue]);
 
   // 3. สรุปยอดรวมแยกตามชื่อ (Group by Vendor)
   const summaryByVendor = useMemo(() => {
@@ -790,13 +788,28 @@ autoTable(doc, {
     setEditingId(null);
   };
 
-  const addQueueItem = async () => {
-    const numericAmount = Number(amount);
-    if (!vendor || numericAmount <= 0 || !dueDate) { alert("กรอกข้อมูลไม่ครบ"); return; }
-    const docRef = await addDoc(collection(db, "paymentQueue"), { vendor, amount: numericAmount, receiveDate, dueDate, status: "Pending" });
-    setQueue(prev => [...prev, { id: docRef.id, vendor, amount: numericAmount, receiveDate, dueDate, status: "Pending" }]);
-    setVendor(""); setAmount("0");
-  };
+const addQueueItem = async () => {
+  const numericAmount = Number(amount);
+
+  if (!vendor || numericAmount <= 0 || !dueDate) {
+    alert("กรอกข้อมูลไม่ครบ");
+    return;
+  }
+
+  await addDoc(collection(db, "paymentQueue"), {
+    vendor,
+    amount: numericAmount,
+    receiveDate,
+    dueDate,
+    status: "Pending",
+    createdAt: serverTimestamp(),
+  });
+
+  await loadQueue();
+
+  setVendor("");
+  setAmount("0");
+};
 
   const deleteItem = async (id: string) => {
     if (window.confirm("ต้องการลบรายการนี้หรือไม่?")) {
@@ -914,8 +927,8 @@ autoTable(doc, {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {/* ใช้ sortedQueue แทน filteredQueue เพื่อให้ข้อมูลเรียงตามวันที่ */}
-                {sortedQueue.map((item) => (
+                {/* ใช้ queue แทน filteredQueue เพื่อให้ข้อมูลเรียงตามวันที่ */}
+                {queue.map((item) => (
                   <TableRow key={item.id} hover>
                     <TableCell>
                       {editingId === item.id ? 

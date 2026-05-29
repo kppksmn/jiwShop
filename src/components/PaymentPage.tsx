@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Box,
   Grid,
@@ -86,7 +86,7 @@ function PaymentPage() {
     setAmount("");
   };
 
-const loadPayments = async () => {
+const loadPayments = useCallback(async () => {
   try {
     const startDate = `${year}-${month}-01`;
     const endDate = `${year}-${month}-31`;
@@ -105,38 +105,36 @@ const loadPayments = async () => {
       ...(d.data() as Omit<PaymentItem, "id">),
     }));
 
-    setNewItems(
-      all.filter((i) => i.status === "new")
-    );
-
-    setPaidItems(
-      all.filter((i) => i.status === "paid")
-    );
+    setNewItems(all.filter((i) => i.status === "new"));
+    setPaidItems(all.filter((i) => i.status === "paid"));
   } catch (error) {
     console.error(error);
   }
-};
+}, [year, month]);
 
-  const loadCarryForward = async () => {
-    const q = query(
-      collection(db, "carryForwards"),
-      where("year", "==", Number(year)),
-      where("month", "==", month)
-    );
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      setCarryForward(snap.docs[0].data().amount);
-      setCarryDocId(snap.docs[0].id);
-    } else {
-      setCarryForward(0);
-      setCarryDocId(null);
-    }
-  };
+const loadCarryForward = useCallback(async () => {
+  const q = query(
+    collection(db, "carryForwards"),
+    where("year", "==", Number(year)),
+    where("month", "==", month)
+  );
 
-  useEffect(() => {
-    loadPayments();
-    loadCarryForward();
-  }, [year, month]);
+  const snap = await getDocs(q);
+
+  if (!snap.empty) {
+    setCarryForward(snap.docs[0].data().amount);
+    setCarryDocId(snap.docs[0].id);
+  } else {
+    setCarryForward(0);
+    setCarryDocId(null);
+  }
+}, [year, month]);
+
+
+useEffect(() => {
+  loadPayments();
+  loadCarryForward();
+}, [loadPayments, loadCarryForward]);
 
   const saveNewItem = async () => {
     if (amount === "" || amount < 0) return alert("กรุณาระบุจำนวนเงิน");

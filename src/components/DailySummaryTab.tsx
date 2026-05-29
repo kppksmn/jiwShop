@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -28,7 +28,6 @@ import {
   serverTimestamp,
   query,
   orderBy,
-  updateDoc,
   where,
 } from "firebase/firestore";
 import { db } from "../firebase";
@@ -36,7 +35,6 @@ import * as XLSX from "xlsx-js-style";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { THSarabunNew } from "../fonts/THSarabunNew";
 import { PromptRegular } from "../fonts/Prompt-Regular";
 
 /* ================= INTERFACE ================= */
@@ -104,8 +102,8 @@ const [monthlyRows, setMonthlyRows] = useState<DailySummary[]>([]);
 
 
   /* ================= LOAD ================= */
-  const loadMonthlyRows = async () => {
-  const monthStart = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
+const loadMonthlyRows = useCallback(async () => {
+    const monthStart = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
 
   const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
 
@@ -139,13 +137,13 @@ const [monthlyRows, setMonthlyRows] = useState<DailySummary[]>([]);
   });
 
   setMonthlyRows(data);
-};
+}, [selectedMonth, selectedYear]);
 
 useEffect(() => {
   loadMonthlyRows();
 }, [selectedMonth, selectedYear]);
 
-  const loadRows = async () => {
+  const loadRows = useCallback(async () => {
   const q = query(
     collection(db, "dailySummary"),
     where("date", ">=", fromDate),
@@ -174,7 +172,7 @@ useEffect(() => {
   });
 
   setRows(data);
-};
+}, [fromDate, toDate]);
 
 useEffect(() => {
   loadRows();
@@ -828,7 +826,7 @@ const filteredRows = rows;
 
                     <TableCell
                       align="right"
-                      sx={{ color: (r.profit - r.expenseCash) < 0 ? "red" : (r.profit - r.expenseCash) == 0 ? "gray" : "green" }}
+                      sx={{ color: (r.profit - r.expenseCash) < 0 ? "red" : (r.profit - r.expenseCash) === 0 ? "gray" : "green" }}
                     >
                       {formatNumber(r.profit - r.expenseCash)}
                     </TableCell>

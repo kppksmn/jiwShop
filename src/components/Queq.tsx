@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Card, CardContent, Grid, TextField, Button, Typography,
   Table, TableBody, TableCell, TableHead, TableRow, TableContainer, Box, Divider, Paper
@@ -40,7 +40,7 @@ export default function PaymentQueueTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
-const loadQueue = async () => {
+const loadQueue = useCallback(async () => {
   try {
     const startDate = `${filterMonth}-01`;
     const endDate = `${filterMonth}-31`;
@@ -73,12 +73,11 @@ const loadQueue = async () => {
   } catch (error) {
     console.error(error);
   }
-};
-
+}, [filterMonth]);
 
 useEffect(() => {
   loadQueue();
-}, [filterMonth]);
+}, [loadQueue]);
 const exportExcel = () => {
   /* ================= DATA ================= */
 
